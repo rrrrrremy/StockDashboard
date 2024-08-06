@@ -1,14 +1,33 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import axios, { AxiosError } from 'axios';
 import { getAIStocksData, StockOpportunity } from '../services/stockService';
 import { TrendingDownIcon, LightningBoltIcon, ChartBarIcon, NewspaperIcon, BeakerIcon, ExclamationCircleIcon } from '@heroicons/react/solid';
+
+interface AnalysisError {
+  message: string;
+  response?: {
+    data: any;
+    status: number;
+    headers: Record<string, string>;
+  };
+  request?: any;
+}
+
+function isAnalysisError(error: unknown): error is AnalysisError {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'message' in error &&
+    typeof (error as any).message === 'string'
+  );
+}
 
 export default function BestOpportunity() {
   const [bestStock, setBestStock] = useState<StockOpportunity | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [analysis, setAnalysis] = useState<string | null>(null);
-  const [analysisError, setAnalysisError] = useState<any>(null);
+  const [analysisError, setAnalysisError] = useState<AnalysisError | null>(null);
 
   useEffect(() => {
     async function fetchData() {
@@ -43,15 +62,23 @@ export default function BestOpportunity() {
           setAnalysis(analysisResponse.data.analysis);
         } catch (analysisErr) {
           console.error('Error fetching analysis:', analysisErr);
-          setAnalysisError({
-            message: analysisErr.message,
-            response: analysisErr.response ? {
-              data: analysisErr.response.data,
-              status: analysisErr.response.status,
-              headers: analysisErr.response.headers,
-            } : 'No response',
-            request: analysisErr.request ? 'Request was made but no response was received' : 'No request was made',
-          });
+          if (isAnalysisError(analysisErr)) {
+            setAnalysisError({
+              message: analysisErr.message,
+              response: analysisErr.response,
+              request: analysisErr.request
+            });
+          } else if (axios.isAxiosError(analysisErr)) {
+            setAnalysisError({
+              message: analysisErr.message,
+              response: analysisErr.response,
+              request: analysisErr.request
+            });
+          } else {
+            setAnalysisError({
+              message: 'An unknown error occurred while fetching the analysis.'
+            });
+          }
         }
 
       } catch (err) {
@@ -63,7 +90,8 @@ export default function BestOpportunity() {
     }
 
     fetchData();
-  }, []); // Empty dependency array ensures this effect runs only once on mount
+  }, []);
+ // Empty dependency array ensures this effect runs only once on mount
 
   useEffect(() => {
     // Set up interval to refresh stock data only (not AI analysis)
