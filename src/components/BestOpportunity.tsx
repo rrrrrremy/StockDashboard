@@ -1,7 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import axios, { AxiosError } from 'axios';
+import axios, { AxiosError, AxiosResponse } from 'axios';
 import { getAIStocksData, StockOpportunity } from '../services/stockService';
 import { TrendingDownIcon, LightningBoltIcon, ChartBarIcon, NewspaperIcon, BeakerIcon, ExclamationCircleIcon } from '@heroicons/react/solid';
+
+interface AnalysisResponse {
+  analysis: string;
+}
 
 interface AnalysisError {
   message: string;
@@ -13,13 +17,8 @@ interface AnalysisError {
   request?: any;
 }
 
-function isAnalysisError(error: unknown): error is AnalysisError {
-  return (
-    typeof error === 'object' &&
-    error !== null &&
-    'message' in error &&
-    typeof (error as any).message === 'string'
-  );
+function isAxiosError(error: any): error is AxiosError {
+  return error.isAxiosError === true;
 }
 
 export default function BestOpportunity() {
@@ -57,21 +56,19 @@ export default function BestOpportunity() {
         // Fetch Claude's analysis only once
         try {
           console.log('Fetching Claude analysis for:', topStock.symbol);
-          const analysisResponse = await axios.post('/api/claude-analysis', { stockData: topStock });
+          const analysisResponse: AxiosResponse<AnalysisResponse> = await axios.post('/api/claude-analysis', { stockData: topStock });
           console.log('Claude analysis response:', analysisResponse.data);
           setAnalysis(analysisResponse.data.analysis);
         } catch (analysisErr) {
           console.error('Error fetching analysis:', analysisErr);
-          if (isAnalysisError(analysisErr)) {
+          if (isAxiosError(analysisErr)) {
             setAnalysisError({
               message: analysisErr.message,
-              response: analysisErr.response,
-              request: analysisErr.request
-            });
-          } else if (axios.isAxiosError(analysisErr)) {
-            setAnalysisError({
-              message: analysisErr.message,
-              response: analysisErr.response,
+              response: analysisErr.response ? {
+                data: analysisErr.response.data,
+                status: analysisErr.response.status,
+                headers: analysisErr.response.headers as Record<string, string>
+              } : undefined,
               request: analysisErr.request
             });
           } else {
@@ -184,32 +181,32 @@ export default function BestOpportunity() {
           </div>
         )}
         <div className="bg-white bg-opacity-10 rounded-lg p-4">
-          <div className="flex items-center mb-2">
-            <BeakerIcon className="h-6 w-6 mr-2" />
-            <span className="text-sm font-semibold">AI Analysis</span>
-          </div>
-          {analysis ? (
-            <p className="text-sm">{analysis}</p>
-          ) : analysisError ? (
-            <div className="text-yellow-300">
-              <p className="text-sm font-semibold">Error fetching analysis:</p>
-              <p className="text-xs">{analysisError.message}</p>
-              {analysisError.response && (
-                <div className="mt-2">
-                  <p className="text-xs font-semibold">Response:</p>
-                  <pre className="text-xs overflow-auto max-h-40">
-                    {JSON.stringify(analysisError.response, null, 2)}
-                  </pre>
-                </div>
-              )}
-              {analysisError.request && (
-                <p className="text-xs mt-2">{analysisError.request}</p>
-              )}
-            </div>
-          ) : (
-            <p className="text-sm">Loading analysis...</p>
-          )}
+        <div className="flex items-center mb-2">
+          <BeakerIcon className="h-6 w-6 mr-2" />
+          <span className="text-sm font-semibold">AI Analysis</span>
         </div>
+        {analysis ? (
+          <p className="text-sm">{analysis}</p>
+        ) : analysisError ? (
+          <div className="text-yellow-300">
+            <p className="text-sm font-semibold">Error fetching analysis:</p>
+            <p className="text-xs">{analysisError.message}</p>
+            {analysisError.response && (
+              <div className="mt-2">
+                <p className="text-xs font-semibold">Response:</p>
+                <pre className="text-xs overflow-auto max-h-40">
+                  {JSON.stringify(analysisError.response, null, 2)}
+                </pre>
+              </div>
+            )}
+            {analysisError.request && (
+              <p className="text-xs mt-2">Request was made but no response was received</p>
+            )}
+          </div>
+        ) : (
+          <p className="text-sm">Loading analysis...</p>
+        )}
+      </div>
       </div>
     </div>
   );
