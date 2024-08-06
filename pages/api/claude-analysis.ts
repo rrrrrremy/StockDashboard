@@ -1,7 +1,13 @@
+// pages/api/claude-analysis.ts
 import { NextApiRequest, NextApiResponse } from 'next';
 import Anthropic from '@anthropic-ai/sdk';
 
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
+
+interface ContentBlock {
+  type: string;
+  text?: string;
+}
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   console.log('API route hit:', req.method, req.url);
@@ -17,16 +23,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(400).json({ message: 'Stock data is required' });
   }
 
-  console.log('Checking ANTHROPIC_API_KEY...');
   if (!ANTHROPIC_API_KEY) {
     console.error('ANTHROPIC_API_KEY is not set');
-    console.log('Available environment variables:', Object.keys(process.env));
-    return res.status(500).json({ 
-      message: 'Server configuration error',
-      details: 'ANTHROPIC_API_KEY is not set. Available env vars: ' + Object.keys(process.env).join(', ')
-    });
+    return res.status(500).json({ message: 'Server configuration error' });
   }
-  console.log('ANTHROPIC_API_KEY is set');
 
   try {
     const anthropic = new Anthropic({
@@ -59,14 +59,25 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     });
 
     console.log('Received response from Claude API:', JSON.stringify(response, null, 2));
-    const analysis = response.content[0].text;
-    res.status(200).json({ analysis });
+    
+    // Check if content is an array and has at least one element
+    if (Array.isArray(response.content) && response.content.length > 0) {
+      const firstContent = response.content[0] as ContentBlock;
+      if (firstContent.type === 'text' && firstContent.text) {
+        const analysis = firstContent.text;
+        res.status(200).json({ analysis });
+      } else {
+        throw new Error('Unexpected content structure in API response');
+      }
+    } else {
+      throw new Error('No content in API response');
+    }
   } catch (error) {
     console.error('Error calling Claude API:', error);
     res.status(500).json({ 
       message: 'Error generating analysis', 
-      error: error.message,
-      details: error.response ? error.response.data : 'No additional details available'
+      error: error instanceof Error ? error.message : 'Unknown error',
+      details: error instanceof Error && 'response' in error ? (error as any).response?.data : 'No additional details available'
     });
   }
 }
