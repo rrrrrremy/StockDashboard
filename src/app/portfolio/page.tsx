@@ -6,7 +6,7 @@ export default function Portfolio() {
     <div className="bg-white shadow-md rounded-lg p-6">
       <h2 className="text-2xl font-bold text-gray-800 mb-4">My Portfolio</h2>
       <p className="text-gray-600">
-        This is where you'll be able to track your personal stock portfolio. 
+        This is where youll be able to track your personal stock portfolio. 
         Features coming soon:
       </p>
       <ul className="list-disc list-inside mt-4 space-y-2 text-gray-700">
