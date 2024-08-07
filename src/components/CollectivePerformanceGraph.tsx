@@ -11,6 +11,7 @@ import {
   Tooltip,
   Legend
 } from 'chart.js';
+import { getAIStocksData } from '../services/stockService';
 
 ChartJS.register(
   CategoryScale,
@@ -33,13 +34,35 @@ const CollectivePerformanceGraph: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const fetchHistoricalData = async () => {
+    const fetchAndUpdateData = async () => {
       try {
         setLoading(true);
         setError(null);
 
+        // Fetch current stock data
+        const stocksData = await getAIStocksData();
+        const totalValue = stocksData.reduce((sum, stock) => sum + (stock.currentPrice || 0), 0);
+        const currentDate = new Date().toISOString().split('T')[0];
+
+        // Fetch historical data
         const response = await axios.get<{ data: HistoricalDataPoint[] }>('/historical_data.json');
-        const historicalData = response.data.data;
+        let historicalData = response.data.data;
+
+        // Check if we need to add a new data point
+        if (historicalData.length === 0 || historicalData[historicalData.length - 1].date !== currentDate) {
+          historicalData.push({
+            date: currentDate,
+            value: totalValue
+          });
+
+          // Keep only the last 30 days of data
+          if (historicalData.length > 30) {
+            historicalData = historicalData.slice(-30);
+          }
+
+          // Save updated historical data
+          await axios.post('/api/update-historical-data', { data: historicalData });
+        }
 
         setChartData({
           labels: historicalData.map(point => point.date),
@@ -54,14 +77,14 @@ const CollectivePerformanceGraph: React.FC = () => {
           ]
         });
       } catch (err) {
-        console.error('Error fetching historical data:', err);
-        setError('Failed to load chart data. Please try again later.');
+        console.error('Error fetching or updating data:', err);
+        setError('Failed to load or update chart data. Please try again later.');
       } finally {
         setLoading(false);
       }
     };
 
-    fetchHistoricalData();
+    fetchAndUpdateData();
   }, []);
 
   const options = {

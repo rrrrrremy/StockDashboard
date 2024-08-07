@@ -1,7 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from 'next'
 import fs from 'fs'
 import path from 'path'
-import { getAIStocksData } from '../../services/stockService'
 
 export default async function handler(
   req: NextApiRequest,
@@ -12,30 +11,15 @@ export default async function handler(
   }
 
   try {
-    const stocksData = await getAIStocksData()
-    const totalValue = stocksData.reduce((sum, stock) => sum + (stock.currentPrice || 0), 0)
-    
-    const currentDate = new Date().toISOString().split('T')[0]
-    
-    const filePath = path.join(process.cwd(), 'public', 'historical_data.json')
-    let historicalData = { data: [] }
+    const { data } = req.body
 
-    if (fs.existsSync(filePath)) {
-      const fileContent = fs.readFileSync(filePath, 'utf8')
-      historicalData = JSON.parse(fileContent)
+    if (!Array.isArray(data)) {
+      return res.status(400).json({ message: 'Invalid data format' })
     }
+
+    const filePath = path.join(process.cwd(), 'public', 'historical_data.json')
     
-    historicalData.data.push({
-      date: currentDate,
-      value: totalValue
-    })
-    
-    // Keep only the last 30 days of data
-    if (historicalData.data.length > 30) {
-      historicalData.data = historicalData.data.slice(-30)
-    }
-    
-    fs.writeFileSync(filePath, JSON.stringify(historicalData, null, 2))
+    fs.writeFileSync(filePath, JSON.stringify({ data }, null, 2))
     
     res.status(200).json({ message: "Historical data updated successfully" })
   } catch (error) {
