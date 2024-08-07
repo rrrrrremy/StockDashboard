@@ -22,7 +22,7 @@ export async function getStockNews(symbol: string): Promise<NewsItem | null> {
         q: `${symbol} AND (earnings OR revenue OR growth OR "stock price" OR investor OR market)`,
         language: 'en',
         sortBy: 'relevancy',
-        pageSize: 10,  // We'll fetch 10 articles and choose the most relevant
+        pageSize: 10,
         apiKey: NEWS_API_KEY
       }
     });
@@ -38,11 +38,38 @@ export async function getStockNews(symbol: string): Promise<NewsItem | null> {
       relevanceScore: calculateRelevanceScore(article, symbol)
     }));
 
-    // Sort by relevance score and return the top article
     return scoredArticles.sort((a: NewsItem, b: NewsItem) => b.relevanceScore - a.relevanceScore)[0];
   } catch (error) {
     console.error(`Error fetching news for ${symbol}:`, error);
     return null;
+  }
+}
+
+export async function getAINews(): Promise<NewsItem[]> {
+  try {
+    const response = await axios.get(`${NEWS_API_BASE_URL}/everything`, {
+      params: {
+        q: 'artificial intelligence AND (technology OR innovation OR "machine learning" OR "deep learning" OR robotics)',
+        language: 'en',
+        sortBy: 'publishedAt',
+        pageSize: 20,
+        apiKey: NEWS_API_KEY
+      }
+    });
+
+    const articles = response.data.articles;
+
+    if (articles.length === 0) {
+      return [];
+    }
+
+    return articles.map((article: NewsItem) => ({
+      ...article,
+      relevanceScore: calculateRelevanceScore(article, 'AI')
+    }));
+  } catch (error) {
+    console.error('Error fetching AI news:', error);
+    return [];
   }
 }
 
@@ -55,7 +82,7 @@ function calculateRelevanceScore(article: NewsItem, keyword: string): number {
     score += 5;
   }
 
-  const keywords = ['earnings', 'revenue', 'growth', 'stock price', 'investor', 'market', 'profit', 'loss', 'acquisition', 'merger'];
+  const keywords = ['artificial intelligence', 'AI', 'machine learning', 'deep learning', 'neural networks', 'robotics', 'innovation', 'technology'];
   keywords.forEach(keyword => {
     if (lowercaseTitle.includes(keyword)) score += 2;
     if (lowercaseDescription.includes(keyword)) score += 1;
