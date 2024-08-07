@@ -1,0 +1,14 @@
+[build]
+  command = "npm run build"
+  publish = "out"
+
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
+
+[functions]
+  directory = "netlify/functions"
+
+[[scheduled]]
+  # Run daily at midnight UTC
+  schedule = "0 0 * * *"
+  command = "netlify functions:invoke update-historical-data"

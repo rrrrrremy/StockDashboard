@@ -11,7 +11,6 @@ import {
   Tooltip,
   Legend
 } from 'chart.js';
-import { ALL_STOCKS } from './stockCategories';
 
 ChartJS.register(
   CategoryScale,
@@ -23,12 +22,9 @@ ChartJS.register(
   Legend
 );
 
-const FINNHUB_API_KEY = process.env.NEXT_PUBLIC_FINNHUB_API_KEY;
-const FINNHUB_BASE_URL = 'https://finnhub.io/api/v1';
-
-interface StockData {
-  symbol: string;
-  data: number[];
+interface HistoricalDataPoint {
+  date: string;
+  value: number;
 }
 
 const CollectivePerformanceGraph: React.FC = () => {
@@ -37,65 +33,35 @@ const CollectivePerformanceGraph: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const fetchStockData = async () => {
+    const fetchHistoricalData = async () => {
       try {
         setLoading(true);
-        const toDate = Math.floor(Date.now() / 1000);
-        const fromDate = toDate - 90 * 24 * 60 * 60; // 90 days ago
+        setError(null);
 
-        const stockDataPromises = ALL_STOCKS.map(async (symbol) => {
-          const response = await axios.get(`${FINNHUB_BASE_URL}/stock/candle`, {
-            params: {
-              symbol,
-              resolution: 'D',
-              from: fromDate,
-              to: toDate,
-              token: FINNHUB_API_KEY
-            }
-          });
-
-          if (response.data.s === 'ok') {
-            return {
-              symbol,
-              data: response.data.c.map((price: number, index: number) => 
-                (price - response.data.c[0]) / response.data.c[0] * 100 // Percentage change
-              )
-            };
-          }
-          return null;
-        });
-
-        const stocksData = (await Promise.all(stockDataPromises)).filter((data): data is StockData => data !== null);
-
-        const labels = [...Array(stocksData[0].data.length)].map((_, i) => 
-          new Date(fromDate * 1000 + i * 24 * 60 * 60 * 1000).toLocaleDateString()
-        );
-
-        const averagePerformance = labels.map((_, i) => 
-          stocksData.reduce((sum, stock) => sum + stock.data[i], 0) / stocksData.length
-        );
+        const response = await axios.get<{ data: HistoricalDataPoint[] }>('/historical_data.json');
+        const historicalData = response.data.data;
 
         setChartData({
-          labels,
+          labels: historicalData.map(point => point.date),
           datasets: [
             {
-              label: 'Average Performance',
-              data: averagePerformance,
+              label: 'Collective Stock Value',
+              data: historicalData.map(point => point.value),
               fill: false,
               borderColor: 'rgb(75, 192, 192)',
-              tension: 0.1
+              tension: 0.1,
             }
           ]
         });
       } catch (err) {
-        console.error('Error fetching stock data:', err);
-        setError('Failed to load chart data');
+        console.error('Error fetching historical data:', err);
+        setError('Failed to load chart data. Please try again later.');
       } finally {
         setLoading(false);
       }
     };
 
-    fetchStockData();
+    fetchHistoricalData();
   }, []);
 
   const options = {
@@ -106,18 +72,33 @@ const CollectivePerformanceGraph: React.FC = () => {
       },
       title: {
         display: true,
-        text: 'Collective Stock Performance (Last 90 Days)',
+        text: 'Collective Stock Value Over Time',
       },
+      tooltip: {
+        callbacks: {
+          label: function(context: any) {
+            let label = context.dataset.label || '';
+            if (label) {
+              label += ': ';
+            }
+            if (context.parsed.y !== null) {
+              label += new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(context.parsed.y);
+            }
+            return label;
+          }
+        }
+      }
     },
     scales: {
       y: {
+        beginAtZero: false,
         title: {
           display: true,
-          text: 'Percentage Change'
+          text: 'Total Value ($)'
         },
         ticks: {
           callback: function(value: any) {
-            return value.toFixed(2) + '%';
+            return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(value);
           }
         }
       }
@@ -126,9 +107,20 @@ const CollectivePerformanceGraph: React.FC = () => {
 
   if (loading) return <div>Loading chart...</div>;
   if (error) return <div>Error: {error}</div>;
-  if (!chartData) return null;
+  if (!chartData) return <div>No data available</div>;
 
-  return <Line options={options} data={chartData} />;
+  const latestValue = chartData.datasets[0].data[chartData.datasets[0].data.length - 1];
+
+  return (
+    <div>
+      <Line options={options} data={chartData} />
+      <div className="mt-4 text-center">
+        <p className="text-lg font-semibold">
+          Latest Total Portfolio Value: {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(latestValue)}
+        </p>
+      </div>
+    </div>
+  );
 };
 
 export default CollectivePerformanceGraph;
