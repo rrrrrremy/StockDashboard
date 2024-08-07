@@ -1,6 +1,6 @@
 import React from 'react';
 import { StockData } from '../services/finnhubService';
-import { NewsItem } from '../services/newsApiService';
+import type { NewsItem } from '../services/newsApiService';
 import { StockOpportunity } from '../services/stockService';
 interface NewsItemProps {
   item: NewsItemType;
