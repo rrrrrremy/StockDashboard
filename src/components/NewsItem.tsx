@@ -3,7 +3,7 @@ import { StockData } from '../services/finnhubService';
 import type { NewsItem } from '../services/newsApiService';
 import { StockOpportunity } from '../services/stockService';
 interface NewsItemProps {
-  item: NewsItemType;
+  item: NewsItem;
 }
 
 const NewsItem: React.FC<NewsItemProps> = ({ item }) => {
