@@ -1,0 +1,26 @@
+import type { NextApiRequest, NextApiResponse } from 'next'
+import faunadb from 'faunadb'
+
+const q = faunadb.query
+const client = new faunadb.Client({ secret: process.env.FAUNA_SECRET_KEY || '' })
+
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+  if (req.method !== 'GET') {
+    return res.status(405).json({ message: 'Method Not Allowed' })
+  }
+
+  try {
+    const result = await client.query(
+      q.Map(
+        q.Paginate(q.Match(q.Index('all_historical_data')), { size: 30 }),
+        q.Lambda('ref', q.Get(q.Var('ref')))
+      )
+    )
+    
+    const data = result.data.map((item: any) => item.data)
+    res.status(200).json(data)
+  } catch (error) {
+    console.error('Error:', error)
+    res.status(500).json({ error: 'Failed to retrieve data' })
+  }
+}

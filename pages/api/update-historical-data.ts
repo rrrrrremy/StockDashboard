@@ -1,29 +1,31 @@
 import type { NextApiRequest, NextApiResponse } from 'next'
-import fs from 'fs'
-import path from 'path'
+import faunadb from 'faunadb'
 
-export default async function handler(
-  req: NextApiRequest,
-  res: NextApiResponse
-) {
+const q = faunadb.query
+const client = new faunadb.Client({ secret: process.env.FAUNA_SECRET_KEY || '' })
+
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') {
-    return res.status(405).json({ message: 'Method not allowed' })
+    return res.status(405).json({ message: 'Method Not Allowed' })
   }
 
   try {
-    const { data } = req.body
-
-    if (!Array.isArray(data)) {
-      return res.status(400).json({ message: 'Invalid data format' })
-    }
-
-    const filePath = path.join(process.cwd(), 'public', 'historical_data.json')
-    
-    fs.writeFileSync(filePath, JSON.stringify({ data }, null, 2))
-    
-    res.status(200).json({ message: "Historical data updated successfully" })
+    const { date, value } = req.body
+    const result = await client.query(
+      q.Let(
+        {
+          match: q.Match(q.Index('historical_data_by_date'), date)
+        },
+        q.If(
+          q.Exists(q.Var('match')),
+          q.Update(q.Select(['ref'], q.Get(q.Var('match'))), { data: { date, value } }),
+          q.Create(q.Collection('historical_data'), { data: { date, value } })
+        )
+      )
+    )
+    res.status(200).json({ message: 'Data updated successfully' })
   } catch (error) {
-    console.error('Error updating historical data:', error)
-    res.status(500).json({ message: "Failed to update historical data" })
+    console.error('Error:', error)
+    res.status(500).json({ error: 'Failed to update data' })
   }
 }

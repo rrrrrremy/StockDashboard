@@ -45,23 +45,25 @@ const CollectivePerformanceGraph: React.FC = () => {
         const currentDate = new Date().toISOString().split('T')[0];
 
         // Fetch historical data
-        const response = await axios.get<{ data: HistoricalDataPoint[] }>('/historical_data.json');
-        let historicalData = response.data.data;
+        const response = await axios.get<HistoricalDataPoint[]>('/api/get-historical-data');
+        let historicalData = response.data;
 
         // Check if we need to add a new data point
         if (historicalData.length === 0 || historicalData[historicalData.length - 1].date !== currentDate) {
-          historicalData.push({
+          const newDataPoint = {
             date: currentDate,
             value: totalValue
-          });
+          };
+
+          // Update database with new data point
+          await axios.post('/api/update-historical-data', newDataPoint);
+          
+          historicalData.push(newDataPoint);
 
           // Keep only the last 30 days of data
           if (historicalData.length > 30) {
             historicalData = historicalData.slice(-30);
           }
-
-          // Save updated historical data
-          await axios.post('/api/update-historical-data', { data: historicalData });
         }
 
         setChartData({
