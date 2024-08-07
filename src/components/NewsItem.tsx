@@ -1,9 +1,8 @@
 import React from 'react';
-import { StockData } from '../services/finnhubService';
-import type { NewsItem } from '../services/newsApiService';
-import { StockOpportunity } from '../services/stockService';
+import { NewsItem as NewsItemType } from '../services/newsApiService';
+
 interface NewsItemProps {
-  item: NewsItem;
+  item: NewsItemType;
 }
 
 const NewsItem: React.FC<NewsItemProps> = ({ item }) => {
@@ -15,11 +14,11 @@ const NewsItem: React.FC<NewsItemProps> = ({ item }) => {
         rel="noopener noreferrer"
         className="text-md text-blue-600 hover:underline font-semibold"
       >
-        {item.headline}
+        {item.headline || item.title}
       </a>
-      <p className="text-sm text-gray-600 mt-1">{item.summary}</p>
+      <p className="text-sm text-gray-600 mt-1">{item.summary || item.description}</p>
       <p className="text-xs text-gray-500 mt-1">
-        {item.source} • {new Date(item.datetime * 1000).toLocaleString()}
+        {item.source.name} • {new Date((item.datetime || Date.now()) * 1000).toLocaleString()}
       </p>
     </div>
   );

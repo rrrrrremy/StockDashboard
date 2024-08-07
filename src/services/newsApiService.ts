@@ -5,10 +5,13 @@ const NEWS_API_BASE_URL = 'https://newsapi.org/v2';
 
 export interface NewsItem {
   title: string;
+  headline?: string; // Added for compatibility
   description: string;
+  summary?: string; // Added for compatibility
   url: string;
   urlToImage: string;
   publishedAt: string;
+  datetime?: number; // Added for compatibility
   source: {
     name: string;
   };
@@ -63,8 +66,11 @@ export async function getAINews(): Promise<NewsItem[]> {
       return [];
     }
 
-    return articles.map((article: NewsItem) => ({
+    return articles.map((article: any) => ({
       ...article,
+      headline: article.title, // Map title to headline for compatibility
+      summary: article.description, // Map description to summary for compatibility
+      datetime: new Date(article.publishedAt).getTime() / 1000, // Convert publishedAt to Unix timestamp
       relevanceScore: calculateRelevanceScore(article, 'AI')
     }));
   } catch (error) {
