@@ -4,14 +4,24 @@ import faunadb from 'faunadb'
 const q = faunadb.query
 const client = new faunadb.Client({ secret: process.env.FAUNA_SECRET_KEY || '' })
 
+interface HistoricalDataPoint {
+  date: string;
+  value: number;
+}
+
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') {
     return res.status(405).json({ message: 'Method Not Allowed' })
   }
 
   try {
-    const { date, value } = req.body
-    const result = await client.query(
+    const { date, value } = req.body as HistoricalDataPoint
+
+    if (typeof date !== 'string' || typeof value !== 'number') {
+      return res.status(400).json({ error: 'Invalid input data' })
+    }
+
+    await client.query(
       q.Let(
         {
           match: q.Match(q.Index('historical_data_by_date'), date)
